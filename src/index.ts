@@ -72,6 +72,24 @@ async function checkJsonUpdates() {
 async function main() {
   console.log('Starting JSON Notifier...');
 
+  // Send startup notification if enabled
+  if (config.telegramNotifyOnStart) {
+    try {
+      const customPromptSet = config.openaiCustomPromptContext ? 'Yes' : 'No';
+      const startupMessage = 
+`*JSON Notifier Started*\n
+*Monitoring:* ${escapeMarkdownV2(config.jsonUrl)}
+*Schedule:* \`${escapeMarkdownV2(config.checkIntervalCron)}\`
+*AI Model:* \`${escapeMarkdownV2(config.openaiModelName)}\`
+*Custom Prompt:* ${customPromptSet}`;
+
+      await sendTelegramNotification(startupMessage);
+      console.log('Startup notification sent to Telegram.');
+    } catch (error) {
+      console.error('Failed to send startup notification:', error);
+    }
+  }
+
   // Perform an initial check immediately on startup
   await checkJsonUpdates();
 

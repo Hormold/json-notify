@@ -77,8 +77,10 @@ Configuration is managed via environment variables defined in the `.env` file:
 *   `TELEGRAM_BOT_TOKEN` (Required): The token for your Telegram bot (obtained from BotFather).
 *   `TELEGRAM_CHAT_ID` (Required): The ID of the Telegram chat where notifications should be sent (you can get this from bots like `@userinfobot`).
 *   `CHECK_INTERVAL_CRON` (Required): Cron string specifying how often to check for updates (e.g., `'0 * * * *'` for every hour at minute 0). See [crontab.guru](https://crontab.guru/) for help.
+*   `OPENAI_MODEL_NAME` (Optional): The specific OpenAI model to use for summarization (e.g., `gpt-4`, `gpt-3.5-turbo`, `gpt-4o`). Defaults to `gpt-4o-mini` if not set.
 *   `STATE_FILE_PATH` (Optional): **Path inside the application environment (container or host) where the last known JSON state should be stored.** Defaults to `./lastState.json` relative to the project root if run directly, or `/app/lastState.json` inside the default Docker setup. **Crucial for Docker persistence - set this to a path within your mounted volume (e.g., `/app/data/lastState.json`) if using one.**
 *   `OPENAI_CUSTOM_PROMPT_CONTEXT` (Optional): Additional text to append to the system prompt sent to OpenAI for customizing the summary generation.
+*   `TELEGRAM_NOTIFY_ON_START` (Optional): Set to `true` to send a notification to the specified Telegram chat when the application starts or restarts. Defaults to `false`.
 
 ## Credits
 
