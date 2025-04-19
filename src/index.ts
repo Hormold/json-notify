@@ -3,7 +3,7 @@ import { config } from './config.js';
 import { readLastState, writeState } from './storage.js';
 import { fetchJsonData } from './fetcher.js';
 import { compareJson } from './comparer.js';
-import { generateChangeSummary } from './aiProcessor.js';
+import { generateChangeSummary, type ChangeSummaryResult } from './aiProcessor.js';
 import { sendTelegramNotification, escapeMarkdownV2 } from './notifier.js';
 
 // Define a type for the state, assuming it's an object
@@ -39,27 +39,45 @@ async function checkJsonUpdates() {
     } else {
       const changes = compareJson(lastState, currentState);
 
-      if (changes) {
-        console.log('Changes detected!');
+      // Ensure changes array exists and has content before calling AI
+      const actualChanges = changes ? changes.filter(c => c.added || c.removed) : [];
 
-        // 4. Generate summary using AI (if changes detected)
-        const summary = await generateChangeSummary(changes);
+      if (actualChanges.length > 0) {
+        console.log('Changes detected! Requesting summary and evaluation from AI...');
 
-        // 5. Send notification
-        const escapedSummary = escapeMarkdownV2(summary);
-        const notificationMessage = `*JSON Update Detected*\n\n${escapedSummary}`;
-        await sendTelegramNotification(notificationMessage);
+        // 4. Generate summary using AI
+        const aiResult: ChangeSummaryResult = await generateChangeSummary(actualChanges);
 
-        // 6. Update the state file
+        // 5. Send notification ONLY if AI deems it worth reporting
+        if (aiResult.isWorthToReport) {
+          console.log('AI determined changes are worth reporting. Sending notification...');
+          // Use the reportedChanges string from the AI result for the notification
+          const escapedSummary = escapeMarkdownV2(aiResult.reportedChanges);
+          const notificationMessage = `*JSON Update Detected*\n\n${escapedSummary}`;
+          await sendTelegramNotification(notificationMessage);
+        } else {
+          // Log why notification wasn't sent
+          console.log('AI determined changes are NOT significant enough to report based on criteria, or the summary was empty. Notification skipped.');
+        }
+
+        // 6. Update the state file - always update if compareJson found differences
         await writeState(currentState);
       } else {
-        console.log('No significant changes found.');
+        console.log('No significant changes found after comparison.');
       }
     }
   } catch (error) {
     console.error('Error during JSON update check:', error);
-    // Optionally send an error notification
-    // await sendTelegramNotification(`*Error checking JSON updates*\n\n${escapeMarkdownV2(String(error))}`);
+    // Optionally send an error notification with better formatting
+    try {
+      const errorMessage = String(error instanceof Error ? error.stack || error.message : error);
+      // Escape sparingly for code block
+      const escapedError = escapeMarkdownV2(errorMessage.substring(0, 500)); // Limit length
+      await sendTelegramNotification(`*Error checking JSON updates*:\n\`\`\`\n${escapedError}${errorMessage.length > 500 ? '...[truncated]' : ''}
+\`\`\``);
+    } catch (notifyError) {
+      console.error("Failed to send error notification:", notifyError);
+    }
   } finally {
     isJobRunning = false;
     console.log('JSON update check finished.');

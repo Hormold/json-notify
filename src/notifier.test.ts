@@ -1,38 +1,38 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
-import type TelegramBot from 'node-telegram-bot-api';
-import * as configModule from './config.js'; // Import for spying
 
 // --- Mocks ---
-
+// MOVED TO TOP: Mock node-telegram-bot-api FIRST to potentially fix hoisting issues
 // Define mockSendMessage first
 const mockSendMessage = vi.fn();
-
 // Define the mock constructor at the top level
 const mockConstructor = vi.fn(() => ({
   sendMessage: mockSendMessage,
 }));
-
 // Mock the module using the top-level constructor
 vi.mock('node-telegram-bot-api', () => ({
   default: mockConstructor,
 }));
 
-// Mock config - This will be the default used unless overridden by spyOn
-vi.mock('./config.js', async (importOriginal) => {
-  const actualConfig = await importOriginal<typeof configModule>();
-  return {
-    ...actualConfig, // Keep actual implementation details if any
+// Other imports AFTER the primary mock
+import type TelegramBot from 'node-telegram-bot-api';
+import * as configModule from './config.js'; // Import for spying
+
+// Mock config - Simpler version, define static mock values
+vi.mock('./config.js', () => ({
     config: {
       jsonUrl: 'dummy_url',
       openaiApiKey: 'dummy_key',
-      telegramBotToken: 'MOCK_TOKEN',
-      telegramChatId: 'MOCK_CHAT_ID',
+      telegramBotToken: 'MOCK_TOKEN', // Ensure this matches TEST_CONFIG_VALUES
+      telegramChatId: 'MOCK_CHAT_ID',   // Ensure this matches TEST_CONFIG_VALUES
       checkIntervalCron: 'dummy_cron',
       stateFilePath: 'dummy_path',
       openaiCustomPromptContext: '',
+      // Add other required config fields with dummy values
+      openaiModelName: 'gpt-dummy',
+      telegramNotifyOnStart: false,
     },
-  };
-});
+    // If other exports from config.js are used, mock them here too
+}));
 
 // Import AFTER mocks are defined
 import { escapeMarkdownV2, sendTelegramNotification } from './notifier.js';
@@ -95,14 +95,28 @@ describe('sendTelegramNotification', () => {
 
   it('should log a skip message if bot is not initialized (missing config)', async () => {
     const message = 'This should be skipped.';
-    // Use spyOn to override the config *for this test only*
-    vi.spyOn(configModule, 'config', 'get').mockReturnValueOnce({
-      ...configModule.config, // Start with default mock values
-      telegramBotToken: '', // Use empty string to satisfy type, logic handles this as missing
-      telegramChatId: '',   // Use empty string
-    });
 
-    await sendTelegramNotification(message);
+    // Temporarily override the config for this specific test
+    // We need to re-import config or access the mocked module
+    vi.doMock('./config.js', () => ({
+        config: {
+            jsonUrl: 'dummy_url',
+            openaiApiKey: 'dummy_key',
+            telegramBotToken: '', // Use empty string for missing
+            telegramChatId: '',   // Use empty string for missing
+            checkIntervalCron: 'dummy_cron',
+            stateFilePath: 'dummy_path',
+            openaiCustomPromptContext: '',
+            openaiModelName: 'gpt-dummy',
+            telegramNotifyOnStart: false,
+        },
+    }));
+    vi.resetModules(); // Force re-import with the doMock
+
+    // Re-import the notifier function to pick up the new mock
+    const { sendTelegramNotification: sendNotificationWithMockedConfig } = await import('./notifier.js');
+
+    await sendNotificationWithMockedConfig(message);
 
     // Bot constructor should NOT be called because config check fails
     expect(mockConstructor).not.toHaveBeenCalled();
@@ -110,6 +124,9 @@ describe('sendTelegramNotification', () => {
     expect(consoleWarnSpy).toHaveBeenCalledWith('Telegram bot token or chat ID not provided. Telegram notifications disabled.');
     expect(consoleLogSpy).toHaveBeenCalledWith('Telegram notifications are disabled. Skipping notification.');
     expect(consoleLogSpy).toHaveBeenCalledWith(`[Telegram Notification Skipped]:\n${message}`);
+
+    // Clean up the specific mock
+    vi.doUnmock('./config.js');
   });
 
   it('should handle errors during bot initialization and disable sending', async () => {
