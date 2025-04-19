@@ -89,4 +89,20 @@ Configuration is managed via environment variables defined in the `.env` file:
 
 Contributions are welcome! Please feel free to submit issues or pull requests.
 
+## Help Wanted: CLI Configuration Utility
+
+We are looking for contributors to add a new feature: a command-line utility for interactive monitoring setup.
+
+**Functionality:**
+
+1.  **Launch:** The utility is launched from the command line, accepting a URL or path to a local JSON file.
+2.  **Display JSON:** Shows the user the structure of the fetched JSON.
+3.  **Path Selection:** Interactively asks the user which fields or parts of the JSON object need to be monitored. The user should be able to specify the path to the desired element (e.g., `data.items[2].price`). The ability to select multiple paths is a plus.
+4.  **Save Configuration:** Saves the selected paths to a configuration file (or outputs them to be added to `.env`), which will be used by the main monitoring script.
+5.  **Update Monitoring Logic:** The main script (`src/index.ts`) needs to be modified to use this configuration. Instead of comparing the entire JSON, it should check for changes only at the specified paths.
+
+**Goal:** To make the monitoring setup more flexible and allow users to track changes in specific values within large JSON files, rather than just detecting changes in the entire file.
+
+If you are interested in implementing this feature, please create an Issue or Pull Request!
+
 *Keywords: json monitor, change detection, api monitoring, data tracking, ai summary, openai, telegram bot, notification, nodejs, typescript, docker, automation, scheduler, cron*
